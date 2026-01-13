@@ -1,0 +1,79 @@
+#include <string>
+
+int main() {
+    const char* fileName = "test.txt";
+    HANDLE hFile = CreateFileA(
+        fileName,
+        GENERIC_READ,           // Доступ тільки для читання
+        FILE_SHARE_READ,        // Дозволити іншим процесам читати файл
+        NULL,
+        OPEN_EXISTING,          // Відкрити лише якщо файл існує
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        std::cerr << "Pomylka vidkryttia fajlu: " << GetLastError() << std::endl;
+        return 1;
+    }
+
+    DWORD fileSize = GetFileSize(hFile, NULL);
+    if (fileSize == INVALID_FILE_SIZE) {
+        std::cerr << "Nemožlyvo otrymaty rozmir fajlu." << std::endl;
+        CloseHandle(hFile);
+        return 1;
+    }
+
+    if (fileSize == 0) {
+        std::cout << "Fajl porozhnij." << std::endl;
+        CloseHandle(hFile);
+        return 0;
+    }
+
+    HANDLE hMapping = CreateFileMapping(
+        hFile,
+        NULL,
+        PAGE_READONLY,          // Тільки для читання
+        0,
+        0,                      // 0 означає використання всього файлу
+        NULL
+    );
+
+    if (hMapping == NULL) {
+        std::cerr << "Pomylka CreateFileMapping: " << GetLastError() << std::endl;
+        CloseHandle(hFile);
+        return 1;
+    }
+
+    const char* pFileData = (const char*)MapViewOfFile(
+        hMapping,
+        FILE_MAP_READ,
+        0,
+        0,
+        0
+    );
+
+    if (pFileData == NULL) {
+        std::cerr << "Pomylka MapViewOfFile: " << GetLastError() << std::endl;
+        CloseHandle(hMapping);
+        CloseHandle(hFile);
+        return 1;
+    }
+
+    int count = 0;
+    for (DWORD i = 0; i < fileSize; ++i) {
+        if (pFileData[i] == 'a' || pFileData[i] == 'A') {
+            count++;
+        }
+    }
+
+    std::cout << "Fajl prochytano uspishno!" << std::endl;
+    std::cout << "Zahalnyj rozmir: " << fileSize << " bajtiv." << std::endl;
+    std::cout << "Kil'kist' liter 'a' abo 'A': " << count << std::endl;
+
+    UnmapViewOfFile(pFileData);
+    CloseHandle(hMapping);
+    CloseHandle(hFile);
+
+    return 0;
+}
